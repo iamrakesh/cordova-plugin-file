@@ -45,7 +45,8 @@ public class ContentFilesystem extends Filesystem {
 
     @Override
     public Uri toNativeUri(LocalFilesystemURL inputURL) {
-        String authorityAndPath = inputURL.uri.getEncodedPath().substring(this.name.length() + 2);
+        String encodedUrlPath = inputURL.uri.getEncodedPath();
+        String authorityAndPath = encodedUrlPath.substring(LocalFilesystemURL.fsNameToCdvKeyword(inputURL.fsName).length() + 2);
         if (authorityAndPath.length() < 2) {
             return null;
         }
@@ -189,7 +190,7 @@ public class ContentFilesystem extends Filesystem {
         }
         return null;
 	}
-	
+
 	protected Long lastModifiedDateForCursor(Cursor cursor) {
         int columnIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATE_MODIFIED);
         if (columnIndex == -1) {
