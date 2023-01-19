@@ -27,7 +27,7 @@ static NSString* toBase64(NSData* data) {
     SEL s1 = NSSelectorFromString(@"cdv_base64EncodedString");
     SEL s2 = NSSelectorFromString(@"base64EncodedString");
     SEL s3 = NSSelectorFromString(@"base64EncodedStringWithOptions:");
-    
+
     if ([data respondsToSelector:s1]) {
         NSString* (*func)(id, SEL) = (void *)[data methodForSelector:s1];
         return func(data, s1);
@@ -160,7 +160,7 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
     CDVFilesystemURL* url = [CDVFilesystemURL fileSystemURLWithURL:[[self request] URL]];
     NSObject<CDVFileSystem> *fs = [filePlugin filesystemForURL:url];
     __weak CDVFilesystemURLProtocol* weakSelf = self;
-    
+
     [fs readFileAtURL:url start:0 end:-1 callback:^void(NSData *data, NSString *mimetype, CDVFileError error) {
         NSMutableDictionary* responseHeaders = [[NSMutableDictionary alloc] init];
         responseHeaders[@"Cache-Control"] = @"no-cache";
@@ -376,6 +376,13 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
 - (CDVFilesystemURL *)fileSystemURLforArg:(NSString *)urlArg
 {
     CDVFilesystemURL* ret = nil;
+
+    NSString *hostUrl = [self getHostUrl];
+    if (hostUrl != nil && [urlArg hasPrefix:hostUrl]) {
+      NSString *urlPrefix = [NSString stringWithFormat:@"%@/_app_file_", hostUrl];
+      urlArg = [urlArg stringByReplacingOccurrencesOfString:urlPrefix withString:@"file://"];
+    }
+
     if ([urlArg hasPrefix:@"file://"]) {
         /* This looks like a file url. Get the path, and see if any handlers recognize it. */
         NSURL *fileURL = [NSURL URLWithString:urlArg];
@@ -386,6 +393,25 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
         ret = [CDVFilesystemURL fileSystemURLWithString:urlArg];
     }
     return ret;
+}
+
+/**
+ *  method return 'nil' when 'file' scheme is configured for loading index page (also assets). If 'scheme'/'hostname' is configured return url string based on those preferences.
+ */
+- (NSString *) getHostUrl {
+    NSString *scheme = ((CDVViewController *)self.viewController).appScheme;
+    // If scheme is file or nil, then default to file scheme
+    Boolean isFileScheme = [scheme isEqualToString: @"file"] || scheme == nil;
+    if(isFileScheme) {
+        return nil;
+    }
+
+    NSDictionary* settings = self.commandDelegate.settings;
+    NSString *hostname = [settings objectForKey:@"hostname"];
+    if (hostname == nil) {
+      hostname = @"localhost";
+    }
+    return [NSString stringWithFormat:@"%@://%@", scheme, hostname];
 }
 
 - (CDVFilesystemURL *)fileSystemURLforLocalPath:(NSString *)localPath
@@ -1074,7 +1100,7 @@ NSString* const kCDVFilesystemURLPrefix = @"cdvfile";
 - (void)getFreeDiskSpace:(CDVInvokedUrlCommand*)command
 {
     // no arguments
-    
+
     NSNumber* pNumAvail = [self checkFreeDiskSpace:self.rootDocsPath];
 
     NSString* strFreeSpace = [NSString stringWithFormat:@"%qu", [pNumAvail unsignedLongLongValue]];
